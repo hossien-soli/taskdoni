@@ -1,6 +1,8 @@
 /* each time we run this file we have a fresh database for system! */
 
 drop table if exists users;
+drop table if exists refresh_tokens;
+drop table if exists refresh_token_families;
 drop table if exists projects;
 drop table if exists projects_users;
 drop table if exists tasks;
@@ -27,6 +29,46 @@ create table users
     primary key (id),
     unique (email),
     unique (username)
+);
+
+/* we have a scheduled task for deleting records of old expired,revoked,invalidated families */
+/* in fact this families are the sessions of the users */
+/* oldest active token family bearer(created_at) can revoke other token families or sessions of user */
+create table refresh_token_families
+(
+    id             bigint       not null auto_increment, /* java-long */
+    user           int unsigned not null,
+    revoked        bit(1)       not null default 0,
+    expired        bit(1)       not null default 0, /* when last token expires this will set to true */
+    invalidated    bit(1)       not null default 0, /* family invalidated due to reuse detection */
+
+    created_at     datetime     not null,
+    closed_at      datetime     null, /* fill after revocation or expiration or invalidation */
+
+    /* oldest active token family bearer(created_at) can revoke other token families or sessions of user */
+
+    user_agent     text         null, /* max:1000 */
+    ip_address     varchar(50)  null,
+    ip_lookup_info tinytext     null, /* country,city,province,state */
+
+    primary key (id),
+    foreign key (user) references users (id) on delete cascade on update cascade
+);
+
+/* before each refresh and requesting new access token family must also check for expiration,revocation,invalidation */
+create table refresh_tokens
+(
+    token        varchar(255)     not null,
+    family       bigint           not null, /* java-long */
+
+    lifetime     tinyint unsigned not null, /* 1-255 days */
+    refreshed    bit(1)           not null default 0, /* used for reuse detection */
+
+    created_at   datetime         not null, /* check expiration of family and token base on this (last token) */
+    refreshed_at datetime         null,
+
+    primary key (token),
+    foreign key (family) references refresh_token_families (id) on delete cascade on update cascade
 );
 
 create table projects
