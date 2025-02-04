@@ -9,7 +9,7 @@ create table users
 (
     id                int unsigned not null auto_increment, /* long */
 
-    full_name         varchar(35)  not null,
+    name              varchar(35)  not null, /* full_name */
 
     email             varchar(50)  not null,
     username          varchar(25)  not null, /* min:5 */
@@ -18,7 +18,8 @@ create table users
     role              tinyint      not null, /* 1=CLIENT, 2=MODERATOR, 3=ADMIN  mapped to enum in java */
     /* clients are normal users that can register in system with public registration form! */
 
-    banned            bit(1)       not null, /* boolean - user was banned by a moderator or admin! */
+    banned            bit(1)       not null default 0, /* boolean - user was banned by a moderator or admin! */
+    /* banned users can't create new projects and invite other to a project  */
 
     registered_at     datetime     not null,
     email_verified_at datetime     null,
@@ -52,19 +53,23 @@ create table projects
 /* many-to-many relationship between users and projects! */
 create table projects_users
 (
-    project     int unsigned not null,
-    user        int unsigned not null,
+    project              int unsigned not null,
+    user                 int unsigned not null,
 
-    system_role tinyint      not null, /* 1=OWNER, 2=MANAGER, 3=COLLABORATOR */
+    system_role          tinyint      not null, /* 1=OWNER, 2=MANAGER, 3=COLLABORATOR (map to enum in java) */
     /* only owner can invite user to project! and assign task to both manager and collaborator */
     /* manager can create and assign task to only collaborator */
     /* collaborator only can accept task and manage their tasks! and can assign task to itself! */
     /* each user can also assign task to itself (self assigned tasks) */
     /* all users can see all tasks and other details of project */
 
-    actual_role varchar(35)  not null, /* role of user in project! ex: Java Back-End Developer */
+    deny_task_assignment bit(1)       not null default 0, /* only OWNER can change this */
+    /* don't let this user assign task whether to itself or others */
+    /* this field only relate to managers, collaborators not owners! owners always can assign tasks */
 
-    joined_at   datetime     not null,
+    actual_role          varchar(35)  not null, /* role of user in project! ex: Java Back-End Developer (only OWNER can change this) */
+
+    joined_at            datetime     not null,
 
     primary key (project, user),
 
@@ -80,6 +85,10 @@ create table tasks
     assigned_by       int unsigned null, /* NOT-OPTIONAL - user-id - a user(manager/owner/collaborator) of project */
     assigned_to       int unsigned null, /* NOT-OPTIONAL - user-id - a user(manager/owner/collaborator) of project */
     /* each user can also assign task to itself (self assigned tasks) */
+    /* if a user leave project this two fields must set to null and
+       that user is not trackable by other users of same project anymore */
+    recorded_name_one varchar(35)  null, /* fill after assigned_by user leave the project [a name of a user] */
+    recorded_name_two varchar(35)  null, /* fill after assigned_to user leave the project [a name of a user] */
 
     title             varchar(50)  not null,
     description       text         null, /* min:5  max:500  check for Cross-Site Scripting! */
@@ -88,12 +97,17 @@ create table tasks
 
     must_completed_at datetime     null, /* task deadline */
 
-    status            tinyint      not null, /* mapped to enum in java! */
+    status            tinyint      not null, /* map to enum in java! */
     /* 1=ASSIGNED, 2=ACCEPTED, 3=IN_PROGRESS, 4=COMPLETED, 5=VERIFIED, 6=CANCELED, 7=REJECTED */
-    /* verified by a manager or an owner or assigner user */
-    /* only managers and owners and assigner of task can verify tasks */
+    /* only assigned_to user can accept,in_progress,complete,reject tasks */
+    /* verified by a manager or an owner or assigner_by user */
+    /* only managers and owners and assigner of task can verify tasks and also cancel the task */
+    /* assigned_to user can't cancel the task */
 
-    reject_reason     tinytext     null, /* reject reason by assigned user */
+    /* only owner, manager and assigned_by user can delete tasks */
+
+    reject_reason     tinytext     null, /* reject reason by assigned_to user */
+    cancel_reason     tinytext     null,
 
     assigned_at       datetime     not null,
     accepted_at       datetime     null,
@@ -109,7 +123,8 @@ create table tasks
     foreign key (assigned_to) references users (id) on delete set null on update cascade
 );
 
-/* table: project_events (ex: task_rejection is an event, task_completion, task_assignment) */
+/* table: project_events (ex: task_rejection is an event, task_completion, task_verification
+   ,task_assignment, task_cancellation, user_has_left_the_project, new_user_has_joined_the_project) */
 /* table: project_invitations */
 /* table: conversation_messages */
 /* table: notifications */
