@@ -1,0 +1,13 @@
+**Technical features of application:**
+ - Short-lived JWT access token authentication with refresh token rotation mechanism
+ - Handling api security using Spring-Security and custom authentications
+ - Domain driven design in a modular-monolithic architecture
+ - Each module has 3 different isolated layer (Presentation, Business-Logic, Data-Access)
+ - Simple event driven design using Spring-Modulith events (no external message broker)
+ - Connections between modules is done using events and also direct calls
+ - Asynchronous event handling (background processing) using java virtual threads for handling high-throughput
+ - Using MySQL DBMS for storing data
+ - Using spring jdbc-api and pure sql for connecting into database for simplicity and better performance rather than JPA and ORMs
+ - Good usage of relational database constraint and transactions for keeping data consistent
+ - Using redis store for implementing a simple caching mechanism
+ - Using OpenAPI and springdoc java library for documenting API endpoints and entries
